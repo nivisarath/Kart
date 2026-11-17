@@ -372,9 +372,13 @@ public class Ruteplanlegger {
 
                     System.out.println("Landemerkene er lagret i landemerker.bin.");
                 }
+
+                // Gløshaugen: 2001238, Otilienborg: 1987066, Odense: 2763740.
+                // Endre maal for å velge rute.
+                // brukALT = true bruker ALT, false bruker Dijkstra.
                     int start = 2001238;
                     int maal = 1987066;
-                boolean brukALT = true;
+                    boolean brukALT = true;
 
                 long[] resttid = new long[antallNoder];
                 Arrays.fill(resttid, -1);
