@@ -499,16 +499,7 @@ public class Ruteplanlegger {
                 System.out.println("Totalt antall køuttak: " + antallKoUttak);
                     System.out.println("Søket tok: "
                             + (sluttTid - startTid) / 1_000_000.0 + " ms.");
-                    System.out.println("Veier ut fra node 0:");
 
-                    for (int kant = forsteKant[0];
-                         kant != -1;
-                         kant = nesteKant[kant]) {
-
-                        System.out.println("Til node " + til[kant]
-                                + ", tid: " + reisetid[kant]
-                                + " hundredels sekunder.");
-                    }
                 }
             }
         }
