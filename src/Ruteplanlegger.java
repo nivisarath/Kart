@@ -24,6 +24,45 @@ public class Ruteplanlegger {
         }
     }
 
+    static long[] beregnAvstander(
+            int start,
+            int[] forste,
+            int[] neste,
+            int[] endepunkt,
+            int[] reisetid) {
+
+        long[] avstand = new long[forste.length];
+        Arrays.fill(avstand, Long.MAX_VALUE);
+        avstand[start] = 0;
+
+        PriorityQueue<KoeElement> koe = new PriorityQueue<>();
+        koe.add(new KoeElement(start, 0));
+
+        while (!koe.isEmpty()) {
+            KoeElement aktuell = koe.poll();
+            int node = aktuell.node;
+
+            if (aktuell.tid != avstand[node]) {
+                continue;
+            }
+
+            for (int kant = forste[node];
+                 kant != -1;
+                 kant = neste[kant]) {
+
+                int nabo = endepunkt[kant];
+                long nyTid = aktuell.tid + reisetid[kant];
+
+                if (nyTid < avstand[nabo]) {
+                    avstand[nabo] = nyTid;
+                    koe.add(new KoeElement(nabo, nyTid));
+                }
+            }
+        }
+
+        return avstand;
+    }
+
     public static void main(String[] args) throws IOException {
         try (BufferedReader leser =
                      new BufferedReader(new FileReader("Data/Norden/noder.txt"))) {
@@ -62,7 +101,11 @@ public class Ruteplanlegger {
                 int[] forsteKant = new int[antallNoder];
                 int[] nesteKant = new int[antallKanter];
 
+                int[] forsteOmvendt = new int[antallNoder];
+                int[] nesteOmvendt = new int[antallKanter];
+
                 Arrays.fill(forsteKant, -1);
+                Arrays.fill(forsteOmvendt, -1);
 
                 for (int i = 0; i < antallKanter; i++) {
                     StringTokenizer felt =
@@ -74,6 +117,9 @@ public class Ruteplanlegger {
 
                     nesteKant[i] = forsteKant[fra[i]];
                     forsteKant[fra[i]] = i;
+
+                    nesteOmvendt[i] = forsteOmvendt[til[i]];
+                    forsteOmvendt[til[i]] = i;
                 }
 
                 System.out.println("Lest inn " + antallKanter + " kanter.");
