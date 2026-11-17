@@ -16,6 +16,23 @@ import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 
+/*
+ * Øving 7 – Algoritmer og datastrukturer
+ *
+ * Kjøring:
+ * Kartfilene noder.txt, kanter.txt og interessepkt.txt
+ * skal ligge i Data/Norden/.
+ *
+ * Kompiler: javac Ruteplanlegger.java
+ * Kjør:     java -Xmx4G Ruteplanlegger
+ *
+ * Startnode, målnode og algoritme velges i main().
+ * brukALT = true gir ALT, false gir Dijkstra.
+ *
+ * Landemerkedata lagres automatisk i landemerker.bin
+ * dersom filen ikke finnes fra før.
+ */
+
 public class Ruteplanlegger {
     static class KoeElement implements Comparable<KoeElement> {
         int node;
