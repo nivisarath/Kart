@@ -265,6 +265,34 @@ public class Ruteplanlegger {
 
                 System.out.println("Lest inn "
                         + antallInteressepunkter + " interessepunkter.");
+                System.out.println("\nFire ladestasjoner nær Odense:");
+
+                ArrayList<Integer> ladestasjoner = finnInteressepunkter(
+                        2763740, 4,
+                        forsteKant, nesteKant, til, reisetid,
+                        interessekode, stedsnavn);
+
+                System.out.println("\nFire spise- eller drikkesteder nær Gløshaugen:");
+
+                ArrayList<Integer> matsteder = finnInteressepunkter(
+                        2001238, 24,
+                        forsteKant, nesteKant, til, reisetid,
+                        interessekode, stedsnavn);
+                try (PrintWriter skriver = new PrintWriter("ladestasjoner.csv")) {
+                    for (int nummer : ladestasjoner) {
+                        skriver.println(breddegrader[nummer]
+                                + "," + lengdegrader[nummer]);
+                    }
+                }
+
+                try (PrintWriter skriver = new PrintWriter("matsteder.csv")) {
+                    for (int nummer : matsteder) {
+                        skriver.println(breddegrader[nummer]
+                                + "," + lengdegrader[nummer]);
+                    }
+                }
+
+                System.out.println("Interessepunktene er lagret i kartfiler.");
                 int[] landemerker = {
                         2800567, 1853145, 647826, 3168086
                 };
@@ -368,10 +396,12 @@ public class Ruteplanlegger {
 
                 koe.add(new KoeElement(start, 0, resttid[start]));
                     int antallUndersokte = 0;
+                int antallKoUttak = 0;
                     long startTid = System.nanoTime();
 
                     while (!koe.isEmpty()) {
                         KoeElement aktuell = koe.poll();
+                        antallKoUttak++;
                         int node = aktuell.node;
 
                         // Hopp over gamle køelementer hvis vi har funnet en bedre tid.
@@ -413,9 +443,10 @@ public class Ruteplanlegger {
 
                     long sluttTid = System.nanoTime();
 
-                    if (avstand[maal] == Long.MAX_VALUE) {
-                        System.out.println("Fant ingen rute.");
-                    } else {
+                if (avstand[maal] == Long.MAX_VALUE) {
+                    System.out.println("Fant ingen rute.");
+                    return;
+                } else {
                         long sekunder = avstand[maal] / 100;
                         long timer = sekunder / 3600;
                         long minutter = (sekunder % 3600) / 60;
@@ -461,6 +492,7 @@ public class Ruteplanlegger {
                     }
 
                     System.out.println("Undersøkte noder: " + antallUndersokte);
+                System.out.println("Totalt antall køuttak: " + antallKoUttak);
                     System.out.println("Søket tok: "
                             + (sluttTid - startTid) / 1_000_000.0 + " ms.");
                     System.out.println("Veier ut fra node 0:");
