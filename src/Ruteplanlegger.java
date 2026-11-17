@@ -10,20 +10,32 @@ import java.util.Collections;
 import java.io.DataOutputStream;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
+import java.io.File;
+import java.io.DataInputStream;
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
 
 public class Ruteplanlegger {
     static class KoeElement implements Comparable<KoeElement> {
         int node;
         long tid;
+        long prioritet;
 
+        // Brukes av Dijkstra og landemerkeberegningen.
         KoeElement(int node, long tid) {
+            this(node, tid, tid);
+        }
+
+        // Brukes av ALT.
+        KoeElement(int node, long tid, long prioritet) {
             this.node = node;
             this.tid = tid;
+            this.prioritet = prioritet;
         }
 
         @Override
         public int compareTo(KoeElement annen) {
-            return Long.compare(this.tid, annen.tid);
+            return Long.compare(this.prioritet, annen.prioritet);
         }
     }
 
@@ -64,6 +76,39 @@ public class Ruteplanlegger {
         }
 
         return avstand;
+    }
+
+    static long anslaaResttid(
+            int node,
+            int maal,
+            long[][] fraLandemerker,
+            long[][] tilLandemerker) {
+
+        long estimat = 0;
+
+        for (int i = 0; i < fraLandemerker.length; i++) {
+            long landemerkeTilMaal = fraLandemerker[i][maal];
+            long landemerkeTilNode = fraLandemerker[i][node];
+
+            if (landemerkeTilMaal != Long.MAX_VALUE
+                    && landemerkeTilNode != Long.MAX_VALUE) {
+
+                long forslag = landemerkeTilMaal - landemerkeTilNode;
+                estimat = Math.max(estimat, forslag);
+            }
+
+            long nodeTilLandemerke = tilLandemerker[i][node];
+            long maalTilLandemerke = tilLandemerker[i][maal];
+
+            if (nodeTilLandemerke != Long.MAX_VALUE
+                    && maalTilLandemerke != Long.MAX_VALUE) {
+
+                long forslag = nodeTilLandemerke - maalTilLandemerke;
+                estimat = Math.max(estimat, forslag);
+            }
+        }
+
+        return estimat;
     }
 
     public static void main(String[] args) throws IOException {
@@ -132,153 +177,209 @@ public class Ruteplanlegger {
 
                 long[][] fraLandemerker = new long[landemerker.length][];
                 long[][] tilLandemerker = new long[landemerker.length][];
-                for (int i = 0; i < landemerker.length; i++) {
-                    System.out.println("Beregner landemerke "
-                            + (i + 1) + " av " + landemerker.length);
+                if (new File("landemerker.bin").exists()) {
+                    try (DataInputStream leserLandemerker = new DataInputStream(
+                            new BufferedInputStream(
+                                    new FileInputStream("landemerker.bin")))) {
 
-                    fraLandemerker[i] = beregnAvstander(
-                            landemerker[i],
-                            forsteKant,
-                            nesteKant,
-                            til,
-                            reisetid);
+                        int lagretAntallNoder = leserLandemerker.readInt();
+                        int lagretAntallLandemerker = leserLandemerker.readInt();
 
-                    tilLandemerker[i] = beregnAvstander(
-                            landemerker[i],
-                            forsteOmvendt,
-                            nesteOmvendt,
-                            fra,
-                            reisetid);
-                }
+                        if (lagretAntallNoder != antallNoder
+                                || lagretAntallLandemerker != landemerker.length) {
+                            throw new IOException(
+                                    "Landemerkefilen passer ikke. Slett landemerker.bin og kjør igjen.");
+                        }
 
-                System.out.println("Alle landemerkene er ferdig beregnet.");
-                try (DataOutputStream skriver = new DataOutputStream(
-                        new BufferedOutputStream(
-                                new FileOutputStream("landemerker.bin")))) {
+                        for (int i = 0; i < landemerker.length; i++) {
+                            int lagretLandemerke = leserLandemerker.readInt();
 
-                    skriver.writeInt(antallNoder);
-                    skriver.writeInt(landemerker.length);
+                            if (lagretLandemerke != landemerker[i]) {
+                                throw new IOException(
+                                        "Landemerkene er endret. Slett landemerker.bin og kjør igjen.");
+                            }
 
-                    for (int i = 0; i < landemerker.length; i++) {
-                        skriver.writeInt(landemerker[i]);
+                            fraLandemerker[i] = new long[antallNoder];
+                            tilLandemerker[i] = new long[antallNoder];
 
-                        for (int node = 0; node < antallNoder; node++) {
-                            skriver.writeLong(fraLandemerker[i][node]);
-                            skriver.writeLong(tilLandemerker[i][node]);
+                            for (int node = 0; node < antallNoder; node++) {
+                                fraLandemerker[i][node] = leserLandemerker.readLong();
+                                tilLandemerker[i][node] = leserLandemerker.readLong();
+                            }
                         }
                     }
+
+                    System.out.println("Landemerkene er lest fra fil.");
+                } else {
+                    for (int i = 0; i < landemerker.length; i++) {
+                        System.out.println("Beregner landemerke "
+                                + (i + 1) + " av " + landemerker.length);
+
+                        fraLandemerker[i] = beregnAvstander(
+                                landemerker[i],
+                                forsteKant,
+                                nesteKant,
+                                til,
+                                reisetid);
+
+                        tilLandemerker[i] = beregnAvstander(
+                                landemerker[i],
+                                forsteOmvendt,
+                                nesteOmvendt,
+                                fra,
+                                reisetid);
+                    }
+
+                    System.out.println("Alle landemerkene er ferdig beregnet.");
+                    try (DataOutputStream skriver = new DataOutputStream(
+                            new BufferedOutputStream(
+                                    new FileOutputStream("landemerker.bin")))) {
+
+                        skriver.writeInt(antallNoder);
+                        skriver.writeInt(landemerker.length);
+
+                        for (int i = 0; i < landemerker.length; i++) {
+                            skriver.writeInt(landemerker[i]);
+
+                            for (int node = 0; node < antallNoder; node++) {
+                                skriver.writeLong(fraLandemerker[i][node]);
+                                skriver.writeLong(tilLandemerker[i][node]);
+                            }
+                        }
+                    }
+
+                    System.out.println("Landemerkene er lagret i landemerker.bin.");
+                }
+                    int start = 2001238;
+                    int maal = 2763740;
+                boolean brukALT = true;
+
+                long[] resttid = new long[antallNoder];
+                Arrays.fill(resttid, -1);
+
+                    long[] avstand = new long[antallNoder];
+                    int[] forrige = new int[antallNoder];
+
+                    Arrays.fill(avstand, Long.MAX_VALUE);
+                    Arrays.fill(forrige, -1);
+
+                    avstand[start] = 0;
+                    PriorityQueue<KoeElement> koe = new PriorityQueue<>();
+                resttid[start] = 0;
+
+                if (brukALT) {
+                    resttid[start] = anslaaResttid(
+                            start, maal, fraLandemerker, tilLandemerker);
                 }
 
-                System.out.println("Landemerkene er lagret i landemerker.bin.");
-                int start = 2001238;
-                int maal = 2763740;
+                koe.add(new KoeElement(start, 0, resttid[start]));
+                    int antallUndersokte = 0;
+                    long startTid = System.nanoTime();
 
-                long[] avstand = new long[antallNoder];
-                int[] forrige = new int[antallNoder];
+                    while (!koe.isEmpty()) {
+                        KoeElement aktuell = koe.poll();
+                        int node = aktuell.node;
 
-                Arrays.fill(avstand, Long.MAX_VALUE);
-                Arrays.fill(forrige, -1);
+                        // Hopp over gamle køelementer hvis vi har funnet en bedre tid.
+                        if (aktuell.tid != avstand[node]) {
+                            continue;
+                        }
 
-                avstand[start] = 0;
-                PriorityQueue<KoeElement> koe = new PriorityQueue<>();
-                koe.add(new KoeElement(start, 0));
-                int antallUndersokte = 0;
-                long startTid = System.nanoTime();
+                        antallUndersokte++;
 
-                while (!koe.isEmpty()) {
-                    KoeElement aktuell = koe.poll();
-                    int node = aktuell.node;
+                        // Nå vet vi at raskeste vei til målet er funnet.
+                        if (node == maal) {
+                            break;
+                        }
 
-                    // Hopp over gamle køelementer hvis vi har funnet en bedre tid.
-                    if (aktuell.tid != avstand[node]) {
-                        continue;
+                        for (int kant = forsteKant[node];
+                             kant != -1;
+                             kant = nesteKant[kant]) {
+
+                            int nabo = til[kant];
+                            long nyTid = avstand[node] + reisetid[kant];
+
+                            if (nyTid < avstand[nabo]) {
+                                avstand[nabo] = nyTid;
+                                forrige[nabo] = node;
+                                if (resttid[nabo] == -1) {
+                                    resttid[nabo] = 0;
+
+                                    if (brukALT) {
+                                        resttid[nabo] = anslaaResttid(
+                                                nabo, maal, fraLandemerker, tilLandemerker);
+                                    }
+                                }
+
+                                koe.add(new KoeElement(
+                                        nabo, nyTid, nyTid + resttid[nabo]));
+                            }
+                        }
                     }
 
-                    antallUndersokte++;
+                    long sluttTid = System.nanoTime();
 
-                    // Nå vet vi at raskeste vei til målet er funnet.
-                    if (node == maal) {
-                        break;
+                    if (avstand[maal] == Long.MAX_VALUE) {
+                        System.out.println("Fant ingen rute.");
+                    } else {
+                        long sekunder = avstand[maal] / 100;
+                        long timer = sekunder / 3600;
+                        long minutter = (sekunder % 3600) / 60;
+                        long restSekunder = sekunder % 60;
+
+                        System.out.printf("Reisetid: %02d:%02d:%02d%n",
+                                timer, minutter, restSekunder);
+                    }
+                    ArrayList<Integer> rute = new ArrayList<>();
+                    int node = maal;
+
+                    while (node != -1) {
+                        rute.add(node);
+                        node = forrige[node];
                     }
 
-                    for (int kant = forsteKant[node];
+                    Collections.reverse(rute);
+
+                    try (PrintWriter skriver = new PrintWriter("rute.csv")) {
+                        for (int nodenummer : rute) {
+                            skriver.println(breddegrader[nodenummer]
+                                    + "," + lengdegrader[nodenummer]);
+                        }
+                    }
+
+                    System.out.println("Ruten er lagret i rute.csv.");
+                    try (PrintWriter skriver = new PrintWriter("rute_kart.csv")) {
+                        int antall = Math.min(1000, rute.size());
+
+                        for (int i = 0; i < antall; i++) {
+                            int indeks = 0;
+
+                            if (antall > 1) {
+                                indeks = (int) ((long) i * (rute.size() - 1)
+                                        / (antall - 1));
+                            }
+
+                            int nodenummer = rute.get(indeks);
+
+                            skriver.println(breddegrader[nodenummer]
+                                    + "," + lengdegrader[nodenummer]);
+                        }
+                    }
+
+                    System.out.println("Undersøkte noder: " + antallUndersokte);
+                    System.out.println("Søket tok: "
+                            + (sluttTid - startTid) / 1_000_000.0 + " ms.");
+                    System.out.println("Veier ut fra node 0:");
+
+                    for (int kant = forsteKant[0];
                          kant != -1;
                          kant = nesteKant[kant]) {
 
-                        int nabo = til[kant];
-                        long nyTid = avstand[node] + reisetid[kant];
-
-                        if (nyTid < avstand[nabo]) {
-                            avstand[nabo] = nyTid;
-                            forrige[nabo] = node;
-                            koe.add(new KoeElement(nabo, nyTid));
-                        }
+                        System.out.println("Til node " + til[kant]
+                                + ", tid: " + reisetid[kant]
+                                + " hundredels sekunder.");
                     }
-                }
-
-                long sluttTid = System.nanoTime();
-
-                if (avstand[maal] == Long.MAX_VALUE) {
-                    System.out.println("Fant ingen rute.");
-                } else {
-                    long sekunder = avstand[maal] / 100;
-                    long timer = sekunder / 3600;
-                    long minutter = (sekunder % 3600) / 60;
-                    long restSekunder = sekunder % 60;
-
-                    System.out.printf("Reisetid: %02d:%02d:%02d%n",
-                            timer, minutter, restSekunder);
-                }
-                ArrayList<Integer> rute = new ArrayList<>();
-                int node = maal;
-
-                while (node != -1) {
-                    rute.add(node);
-                    node = forrige[node];
-                }
-
-                Collections.reverse(rute);
-
-                try (PrintWriter skriver = new PrintWriter("rute.csv")) {
-                    for (int nodenummer : rute) {
-                        skriver.println(breddegrader[nodenummer]
-                                + "," + lengdegrader[nodenummer]);
-                    }
-                }
-
-                System.out.println("Ruten er lagret i rute.csv.");
-                try (PrintWriter skriver = new PrintWriter("rute_kart.csv")) {
-                    int antall = Math.min(1000, rute.size());
-
-                    for (int i = 0; i < antall; i++) {
-                        int indeks = 0;
-
-                        if (antall > 1) {
-                            indeks = (int) ((long) i * (rute.size() - 1)
-                                    / (antall - 1));
-                        }
-
-                        int nodenummer = rute.get(indeks);
-
-                        skriver.println(breddegrader[nodenummer]
-                                + "," + lengdegrader[nodenummer]);
-                    }
-                }
-
-                System.out.println("Undersøkte noder: " + antallUndersokte);
-                System.out.println("Søket tok: "
-                        + (sluttTid - startTid) / 1_000_000.0 + " ms.");
-                System.out.println("Veier ut fra node 0:");
-
-                for (int kant = forsteKant[0];
-                     kant != -1;
-                     kant = nesteKant[kant]) {
-
-                    System.out.println("Til node " + til[kant]
-                            + ", tid: " + reisetid[kant]
-                            + " hundredels sekunder.");
                 }
             }
         }
-    }
 }
