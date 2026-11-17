@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.DataInputStream;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
 
 public class Ruteplanlegger {
     static class KoeElement implements Comparable<KoeElement> {
@@ -110,6 +111,61 @@ public class Ruteplanlegger {
 
         return estimat;
     }
+    static ArrayList<Integer> finnInteressepunkter(
+            int start,
+            int type,
+            int[] forsteKant,
+            int[] nesteKant,
+            int[] til,
+            int[] reisetid,
+            int[] interessekode,
+            String[] stedsnavn) {
+
+        long[] avstand = new long[forsteKant.length];
+        Arrays.fill(avstand, Long.MAX_VALUE);
+        avstand[start] = 0;
+
+        ArrayList<Integer> funnet = new ArrayList<>();
+        PriorityQueue<KoeElement> koe = new PriorityQueue<>();
+        koe.add(new KoeElement(start, 0));
+
+        while (!koe.isEmpty() && funnet.size() < 4) {
+            KoeElement aktuell = koe.poll();
+            int node = aktuell.node;
+
+            if (aktuell.tid != avstand[node]) {
+                continue;
+            }
+
+            if ((interessekode[node] & type) != 0) {
+                funnet.add(node);
+
+                System.out.println(stedsnavn[node]
+                        + " | node " + node
+                        + " | " + avstand[node] / 100.0
+                        + " sekunder fra start");
+
+                if (funnet.size() == 4) {
+                    break;
+                }
+            }
+
+            for (int kant = forsteKant[node];
+                 kant != -1;
+                 kant = nesteKant[kant]) {
+
+                int nabo = til[kant];
+                long nyTid = aktuell.tid + reisetid[kant];
+
+                if (nyTid < avstand[nabo]) {
+                    avstand[nabo] = nyTid;
+                    koe.add(new KoeElement(nabo, nyTid));
+                }
+            }
+        }
+
+        return funnet;
+    }
 
     public static void main(String[] args) throws IOException {
         try (BufferedReader leser =
@@ -171,6 +227,44 @@ public class Ruteplanlegger {
                 }
 
                 System.out.println("Lest inn " + antallKanter + " kanter.");
+                int[] interessekode = new int[antallNoder];
+                String[] stedsnavn = new String[antallNoder];
+                int antallInteressepunkter = 0;
+
+                try (BufferedReader punktLeser = new BufferedReader(
+                        new FileReader("Data/Norden/interessepkt.txt",
+                                StandardCharsets.UTF_8))) {
+
+                    String linje;
+
+                    while ((linje = punktLeser.readLine()) != null) {
+                        StringTokenizer felt = new StringTokenizer(linje);
+
+                        // Hopp over tomme linjer og eventuell linje med bare antall.
+                        if (felt.countTokens() < 2) {
+                            continue;
+                        }
+
+                        int nummer = Integer.parseInt(felt.nextToken());
+                        int kode = Integer.parseInt(felt.nextToken());
+
+                        int forsteSitat = linje.indexOf('"');
+                        int sisteSitat = linje.lastIndexOf('"');
+
+                        String navn = "";
+
+                        if (forsteSitat >= 0 && sisteSitat > forsteSitat) {
+                            navn = linje.substring(forsteSitat + 1, sisteSitat);
+                        }
+
+                        interessekode[nummer] |= kode;
+                        stedsnavn[nummer] = navn;
+                        antallInteressepunkter++;
+                    }
+                }
+
+                System.out.println("Lest inn "
+                        + antallInteressepunkter + " interessepunkter.");
                 int[] landemerker = {
                         2800567, 1853145, 647826, 3168086
                 };
@@ -251,7 +345,7 @@ public class Ruteplanlegger {
                     System.out.println("Landemerkene er lagret i landemerker.bin.");
                 }
                     int start = 2001238;
-                    int maal = 2763740;
+                    int maal = 1987066;
                 boolean brukALT = true;
 
                 long[] resttid = new long[antallNoder];
