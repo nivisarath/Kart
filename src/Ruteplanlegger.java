@@ -7,6 +7,9 @@ import java.util.PriorityQueue;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.io.DataOutputStream;
+import java.io.BufferedOutputStream;
+import java.io.FileOutputStream;
 
 public class Ruteplanlegger {
     static class KoeElement implements Comparable<KoeElement> {
@@ -123,6 +126,50 @@ public class Ruteplanlegger {
                 }
 
                 System.out.println("Lest inn " + antallKanter + " kanter.");
+                int[] landemerker = {
+                        2800567, 1853145, 647826, 3168086
+                };
+
+                long[][] fraLandemerker = new long[landemerker.length][];
+                long[][] tilLandemerker = new long[landemerker.length][];
+                for (int i = 0; i < landemerker.length; i++) {
+                    System.out.println("Beregner landemerke "
+                            + (i + 1) + " av " + landemerker.length);
+
+                    fraLandemerker[i] = beregnAvstander(
+                            landemerker[i],
+                            forsteKant,
+                            nesteKant,
+                            til,
+                            reisetid);
+
+                    tilLandemerker[i] = beregnAvstander(
+                            landemerker[i],
+                            forsteOmvendt,
+                            nesteOmvendt,
+                            fra,
+                            reisetid);
+                }
+
+                System.out.println("Alle landemerkene er ferdig beregnet.");
+                try (DataOutputStream skriver = new DataOutputStream(
+                        new BufferedOutputStream(
+                                new FileOutputStream("landemerker.bin")))) {
+
+                    skriver.writeInt(antallNoder);
+                    skriver.writeInt(landemerker.length);
+
+                    for (int i = 0; i < landemerker.length; i++) {
+                        skriver.writeInt(landemerker[i]);
+
+                        for (int node = 0; node < antallNoder; node++) {
+                            skriver.writeLong(fraLandemerker[i][node]);
+                            skriver.writeLong(tilLandemerker[i][node]);
+                        }
+                    }
+                }
+
+                System.out.println("Landemerkene er lagret i landemerker.bin.");
                 int start = 2001238;
                 int maal = 2763740;
 
